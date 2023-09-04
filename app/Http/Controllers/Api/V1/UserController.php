@@ -64,7 +64,6 @@ public function Register(Request $request)
         'gender' => 'required',
         'city' => 'required',
         'support_lan' => 'required',
-    
     ]);
 
     if ($validator->fails()) {
@@ -74,7 +73,6 @@ public function Register(Request $request)
         ], 200);
     }
 
-
     $name = $request->input('name');
     $mobile = $request->input('mobile');
     $device_id = $request->input('device_id');
@@ -82,7 +80,6 @@ public function Register(Request $request)
     $city = $request->input('city');
     $gender = $request->input('gender');
     $support_lan = $request->input('support_lan');
-    $referCode = Str::random(8); // Generate a random refer code
 
     $existingUser = User::where('mobile', $mobile)->first();
     if ($existingUser) {
@@ -92,18 +89,51 @@ public function Register(Request $request)
         ], 200);
     }
 
+    // Generate a random refer_code for the user
+    $referCode = Str::random(8);
+
+    // Fetch the admin's refer_code based on the provided referred_by value
+    $referredBy = $request->referred_by;
+    if (!empty($referredBy)) {
+        $adminCode = substr($referredBy, 0, -4); // Adjust the length based on your admin REFER_CODE format
+        $adminRefer = Admin::where('refer_code', $adminCode)->first();
+
+        if ($adminRefer) {
+            $adminReferCode = $adminRefer->refer_code;
+        }
+    }
+
+    // Define a default MAIN_REFER if needed
+    define('MAIN_REFER', 'CMD');
+
+    // Determine the final refer_code for the user
+    if (!empty($adminReferCode)) {
+        $nextUserNumber = User::max('id') + 1; // Get the next user ID
+        $userReferCode = MAIN_REFER . sprintf('%04d', $nextUserNumber); // Generate user REFER_CODE with leading zeros
+        $refer_code = $adminReferCode . $userReferCode; // Combine admin and user REFER_CODE
+    } else {
+        $refer_code = MAIN_REFER . sprintf('%04d', User::max('id') + 1); // Use default if admin REFER_CODE not found
+    }
+
+    // Create the user and save the refer_code
     $user = new User;
     $user->name = $name;
     $user->mobile = $mobile;
-    $user->refer_code = $referCode;
+    $user->device_id = $device_id;
+    $user->age = $age;
+    $user->city = $city;
+    $user->gender = $gender;
+    $user->support_lan = $support_lan;
+    $user->refer_code = $refer_code;
     $user->save();
-    
+
     return response()->json([
         'success' => true,
         'message' => 'Registered successfully.',
         'data' => $user,
     ], 201);
 }
+
 //update profile
 public function update_profile(Request $request)
 {
@@ -127,9 +157,10 @@ public function update_profile(Request $request)
 
     // Update user details based on the request data
     $user->name = $request->input('name');
-    $user->email = $request->input('email');
-    $user->mobile = $request->input('mobile');
-    $user->password = $request->input('password');
+    $user->age = $request->input('age');
+    $user->city = $request->input('city');
+    $user->gender = $request->input('gender');
+    $user->support_lan = $request->input('support_lan');
     // Add more fields to update as needed
 
     // Save the updated user details
